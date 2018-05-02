@@ -1,0 +1,23 @@
+Type: "AWS::EC2::DHCPOptions"
+Properties:
+  DomainName: String # Required if DomainNameServers is specified; optional otherwise.
+  DomainNameServers: # See Note
+    - String
+  NetbiosNameServers: # See Note
+    - String
+  NetbiosNodeType: Number # Required if NetBiosNameServers is specified; optional otherwise.
+  NtpServers: # See Note
+    - String
+  Tags:
+    - Resource Tag
+
+Note:
+  Required: At least one of the following properties must be specified
+  Properties:
+  - DomainNameServers
+  - NetbiosNameServers
+  - NtpServers
+  Description: After this condition has been fulfilled, the rest of these properties are optional.
+
+Return Values:
+  Ref: When the logical ID of this resource is provided to the Ref intrinsic function, Ref returns the resource name.

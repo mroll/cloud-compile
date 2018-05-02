@@ -1,0 +1,48 @@
+Type: "AWS::EC2::SecurityGroup"
+Properties: 
+  GroupName: String
+  GroupDescription: String # REQUIRED
+  SecurityGroupEgress:
+    - Security Group Rule
+  SecurityGroupIngress:
+    - Security Group Rule
+  Tags:
+    - Resource Tag
+  VpcId: String # Yes, for VPC security groups without a default VPC.
+
+# Security Group Ingress Rule
+CidrIp: String # See Note
+CidrIpv6: String # See Note
+Description: String
+FromPort: Integer
+IpProtocol: String # REQUIRED
+SourceSecurityGroupId: String # See Note
+SourceSecurityGroupName: String # Conditional. If you specify CidrIp, do not specify SourceSecurityGroupName.
+SourceSecurityGroupOwnerId: String # Conditional. If you specify SourceSecurityGroupName and that security group is owned by a different account than the account creating the stack, you must specify the SourceSecurityGroupOwnerId; otherwise, this property is optional.
+ToPort: Integer
+
+# Security Group Egress Rule
+CidrIp: String # See Note
+CidrIpv6: String # See Note
+Description: String
+DestinationPrefixListId: String # See Note
+DestinationSecurityGroupId: String # See Note
+FromPort: Integer
+IpProtocol: String # REQUIRED
+ToPort: Integer
+
+Note:
+  Required: You must specify only one of the following properties
+  Properties:
+  - CidrIp
+	- CidrIpv6
+	- DestinationPrefixListId
+	- DestinationSecurityGroupId
+	- SourceSecurityGroupId
+
+Return Values:
+  Ref: Returns the security group name or the security group ID (for EC2-VPC security groups that are not in a default VPC).
+
+  Fn::GetAtt:
+    GroupId: The group ID of the specified security group.
+      Example: sg-94b3a1f6

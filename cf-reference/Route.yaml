@@ -1,0 +1,24 @@
+Type: "AWS::EC2::Route"
+Properties: 
+  DestinationCidrBlock: String # Conditional. You must specify the DestinationCidrBlock or DestinationIpv6CidrBlock property.
+  DestinationIpv6CidrBlock: String # Conditional. You must specify the DestinationCidrBlock or DestinationIpv6CidrBlock property.
+  EgressOnlyInternetGatewayId: String # See Note
+  GatewayId: String # See Note
+  InstanceId: String # See Note
+  NatGatewayId: String # See Note
+  NetworkInterfaceId: String # See Note
+  RouteTableId: String # REQUIRED
+  VpcPeeringConnectionId: String # See Note
+
+Note:
+  Required: You must specify only one of the following properties
+  Properties:
+  - EgressOnlyInternetGatewayId
+	- GatewayId
+	- InstanceId
+	- NatGatewayId
+	- NetworkInterfaceId
+	- VpcPeeringConnectionId
+
+Return Values:
+  Ref: When the logical ID of this resource is provided to the Ref intrinsic function, Ref returns the resource name.

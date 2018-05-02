@@ -1,0 +1,10 @@
+Type: "AWS::EC2::SubnetNetworkAclAssociation"
+Properties:
+  SubnetId: String # REQUIRED
+  NetworkAclId: String # REQUIRED
+
+Return Values:
+  Ref: Returns the resource name.
+
+  Fn::GetAtt:
+    AssociationId: Returns the value of this object's SubnetId property.
