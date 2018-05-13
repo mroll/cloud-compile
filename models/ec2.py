@@ -4,7 +4,7 @@ from models.base import AwsResourceMixin, CidrBlockMixin, VpcResourceMixin
 class Ec2(AwsResourceMixin):
     def __init__(self, **kwargs):
         self.DisableApiTermination = kwargs.pop(
-            'disbale_api_termination',
+            'disable_api_termination',
             False
         )
         self.InstanceInitiatedShutdownBehavior = kwargs.pop(
