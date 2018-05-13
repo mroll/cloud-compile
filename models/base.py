@@ -3,6 +3,9 @@ class ResourceGroup:
         self.name = name
         self.resources = resources
 
+    def to_json(self):
+        return {resource.name: resource.to_json() for resource in self.resources}
+
 
 class CidrBlockMixin(object):
     def __init__(self, **kwargs):

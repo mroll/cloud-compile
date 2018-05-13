@@ -1,7 +1,9 @@
+import pprint
+
 from models.base import ResourceGroup
+from models.ec2 import *
 from models.vpc import (DHCPOptions, InternetGateway, NetworkAcl, RouteTable,
                         Subnet, Vpc)
-from models.ec2 import *
 
 rg = ResourceGroup(name='rg1')
 
@@ -33,12 +35,13 @@ sg1 = SecurityGroup(name='sg1', vpcid=vpc.name,
 
 naclent1 = NetworkAclEntry(
     name='naclent1',
-    cidrblock='0.0.0.0/0'
+    cidrblock='0.0.0.0/0',
     egress=True,
     protocol=-1,
-    rule_ation='allow',
+    rule_action='allow',
     rule_number='100',
-    network_acl_id=nacl.name
+    network_acl_id=nacl1.name,
+    port_range=PortRange(0, 1024)
 )
 
 subaclass1 = SubnetNetworkAclAssociation(
@@ -81,7 +84,16 @@ egress1 = SecurityGroupEgress(
     protocol='-1'
 )
 
-print(rg.__dict__)
+rg.resources.append(sg1)
+rg.resources.append(naclent1)
+rg.resources.append(subaclass1)
+rg.resources.append(vpcgateatt1)
+rg.resources.append(r1)
+rg.resources.append(vdoa1)
+rg.resources.append(ingress1)
+rg.resources.append(egress1)
 
-for resource in rg.resources:
-    print(resource.to_json())
+
+pp = pprint.PrettyPrinter()
+
+pp.pprint(rg.to_json())
