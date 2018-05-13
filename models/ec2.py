@@ -174,8 +174,8 @@ class SecurityGroup(AwsResourceMixin, VpcResourceMixin):
     def __init__(self, **kwargs):
         self.GroupName = kwargs.pop('group_name', None)
         self.GroupDescription = kwargs.pop('description', None)
-        self.SecurityGroupEgress = []
-        self.SecurityGroupIngress = []
+        self.SecurityGroupEgress = kwargs.pop('sg_egress_rules', [])
+        self.SecurityGroupIngress = kwargs.pop('sg_ingress_rules', [])
 
         # Resource Type
         self.Type = 'AWS::EC2::SecurityGroup'

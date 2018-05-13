@@ -4,7 +4,7 @@ from models.base import AwsResourceMixin, CidrBlockMixin, VpcResourceMixin
 class Vpc(AwsResourceMixin, CidrBlockMixin):
     def __init__(self, **kwargs):
         self.Type = "AWS::EC2::VPC"
-        self.InstanceTenancy = kwargs.pop('instance_tenancy', None)
+        self.InstanceTenancy = kwargs.pop('instance_tenancy', "default")
         self.EnableDnsSupport = kwargs.pop('enable_dns_support', True)
         self.EnableDnsHostnames = kwargs.pop('enable_dns_hostnames', True)
 
