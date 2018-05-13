@@ -1,5 +1,94 @@
 from models.base import AwsResourceMixin, CidrBlockMixin, VpcResourceMixin
 
+
+class Ec2(AwsResourceMixin):
+    def __init__(self, **kwargs):
+        self.DisableApiTermination = kwargs.pop(
+            'disbale_api_termination',
+            False
+        )
+        self.InstanceInitiatedShutdownBehavior = kwargs.pop(
+            'shutdown_behavior',
+            'stop'
+        )
+        self.ImageId = kwargs.pop('image_id', None)
+        self.InstanceType = kwargs.pop('instance_type', 't2.micro')
+        self.KeyName = kwargs.pop('key_name', None)
+        self.Monitoring = kwargs.pop('monitoring', False)
+        self.Tags = kwargs.pop('tags', [])
+        self.NetworkInterfaces = kwargs.pop('network_interfaces', [])
+        
+        # Resource Type
+        self.Type = 'AWS::EC2::Instance'
+
+        super().__init__(**kwargs)
+
+    def to_json(self):
+        return {
+            "Type": self.Type,
+            "Properties": {
+                "DisableApiTermination": self.DisableApiTermination,
+                "InstanceInitiatedShutdownBehavior": self.InstanceInitiatedShutdownBehavior,
+                "ImageId": self.ImageId,
+                "InstanceType": self.InstanceType,
+                "KeyName": self.KeyName,
+                "Monitoring": self.Monitoring,
+                "Tags": self.Tags,
+                "NetworkInterfaces": self.NetworkInterfaces
+            }
+        }
+
+
+class Tag:
+    def __init__(self, key, value):
+        self.Key = key
+        self.Value = value
+
+    def to_json(self):
+        return {
+            {
+                "Key": self.Key,
+                "Value": self.Value
+            }
+        }
+
+
+class NetworkInterface:
+    def __init__(self, delete, index, subnet_id, private_ips,
+                    group_set, associate_public_ip=True):
+        self.DeleteOnTermination = delete
+        self.DeviceIndex = index
+        self.SubnetId = subnet_id
+        self.PrivateIpAddresses = private_ips
+        self.GroupSet = group_set
+        self.AssociatePublicIpAddress = associate_public_ip
+
+
+    def to_json(self):
+        return {
+            "DeleteOnTermination": self.DeleteOnTermination,
+            "DeviceIndex": self.DeviceIndex,
+            "SubnetId": {
+                "Ref": self.SubnetId
+            },
+            "PrivateIpAddresses": self.PrivateIpAddresses,
+            "GroupSet": self.GroupSet,
+            "AssociatePublicIpAddress": self.AssociatePublicIpAddress
+        }
+
+
+class PrivateIpAddress:
+    def __init__(self, private_ip, primary):
+        self.PrivateIpAddress = private_ip
+        self.Primary = primary
+
+    def to_json(self):
+        return {
+            "PrivateIpAddress": self.PrivateIpAddress,
+            "Primary": self.Primary
+        }
+
+
 class Route(AwsResourceMixin):
     def __init__(self, **kwargs):
         self.DestinationCidrBlock = kwargs.pop('destination_cidr_block', None)
