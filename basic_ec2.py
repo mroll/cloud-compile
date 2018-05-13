@@ -33,12 +33,12 @@ sg1 = SecurityGroup(name='sg1', vpcid=vpc.name,
 
 naclent1 = NetworkAclEntry(
     name='naclent1',
-    cidrblock='0.0.0.0/0'
+    cidrblock='0.0.0.0/0',
     egress=True,
     protocol=-1,
     rule_ation='allow',
     rule_number='100',
-    network_acl_id=nacl.name
+    network_acl_id=nacl1.name
 )
 
 subaclass1 = SubnetNetworkAclAssociation(
@@ -80,6 +80,8 @@ egress1 = SecurityGroupEgress(
     cidr_ip='0.0.0.0/0',
     protocol='-1'
 )
+
+ec2 = Ec
 
 print(rg.__dict__)
 
