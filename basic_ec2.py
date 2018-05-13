@@ -84,6 +84,32 @@ egress1 = SecurityGroupEgress(
     protocol='-1'
 )
 
+pips = [PrivateIpAddress('172.31.35.56', True)]
+
+nifaces = [
+    NetworkInterface(
+        False,
+        0,
+        subnet1.name,
+        pips,
+        [
+            {
+                "Ref": sg1.name
+            }
+        ],
+        True
+    )
+]
+
+ec2 = Ec2(
+    name='ada',
+    disable_api_termination=False,
+    shutdown_behavior='stop',
+    image_id='ami-618fab04',
+    key_name='ada',
+    network_interfaces=nifaces
+)
+
 rg.resources.append(sg1)
 rg.resources.append(naclent1)
 rg.resources.append(subaclass1)
