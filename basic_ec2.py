@@ -118,7 +118,7 @@ rg.resources.append(r1)
 rg.resources.append(vdoa1)
 rg.resources.append(ingress1)
 rg.resources.append(egress1)
-
+rg.resources.append(ec2)
 
 pp = pprint.PrettyPrinter()
 

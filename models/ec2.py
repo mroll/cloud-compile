@@ -28,13 +28,15 @@ class Ec2(AwsResourceMixin):
             "Type": self.Type,
             "Properties": {
                 "DisableApiTermination": self.DisableApiTermination,
-                "InstanceInitiatedShutdownBehavior": self.InstanceInitiatedShutdownBehavior,
+                "InstanceInitiatedShutdownBehavior":
+                    self.InstanceInitiatedShutdownBehavior,
                 "ImageId": self.ImageId,
                 "InstanceType": self.InstanceType,
                 "KeyName": self.KeyName,
                 "Monitoring": self.Monitoring,
                 "Tags": self.Tags,
-                "NetworkInterfaces": self.NetworkInterfaces
+                "NetworkInterfaces": 
+                    [iface.to_json() for iface in self.NetworkInterfaces]
             }
         }
 
@@ -71,7 +73,8 @@ class NetworkInterface:
             "SubnetId": {
                 "Ref": self.SubnetId
             },
-            "PrivateIpAddresses": self.PrivateIpAddresses,
+            "PrivateIpAddresses":
+                [ip.to_json() for ip in self.PrivateIpAddresses],
             "GroupSet": self.GroupSet,
             "AssociatePublicIpAddress": self.AssociatePublicIpAddress
         }
@@ -188,12 +191,10 @@ class SecurityGroup(AwsResourceMixin, VpcResourceMixin):
             "Properties": {
                 "GroupName": self.GroupName,
                 "GroupDescription": self.GroupDescription,
-                "SecurityGroupEgress": [
-                    self.SecurityGroupEgress
-                ],
-                "SecurityGroupIngress": [
-                    self.SecurityGroupIngress
-                ],
+                "SecurityGroupEgress":
+                    [sge.to_json() for sge in self.SecurityGroupEgress],
+                "SecurityGroupIngress":
+                    [sgi.to_json() for sgi in self.SecurityGroupIngress],
                 "VpcId": {
                     "Ref": self.VpcId
                 }
