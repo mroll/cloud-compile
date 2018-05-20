@@ -1,25 +1,37 @@
 import boto3
+from botocore.exceptions import ClientError
 
 ec2_client = boto3.client('ec2')
 ec2_resource = boto3.resource('ec2')
 
 
 """
+----------------------------------------------------------------------
+VPC & VPC Resources
+---
+
 creates:
+  - vpc
   - network acl
   - route table
+  - subnet
+  - internet gateway
+  - route table
+  - route
 uses existing:
   - dhcp options
+----------------------------------------------------------------------
 """
 vpc = ec2_resource.create_vpc(CidrBlock='10.0.0.0/16')
-# vpc = ec2_resource.Vpc(create_vpc_response['Vpc']['VpcId'])
 vpc.wait_until_available()
 print(vpc.id)
 
 subnet = vpc.create_subnet(CidrBlock='10.0.0.1/24')
 
 create_ig_response = ec2_client.create_internet_gateway()
-ig = ec2_resource.InternetGateway(create_ig_response["InternetGateway"]["InternetGatewayId"])
+ig = ec2_resource.InternetGateway(
+    create_ig_response["InternetGateway"]["InternetGatewayId"]
+)
 
 vpc.attach_internet_gateway(InternetGatewayId=ig.id)
 print(ig.id)
@@ -32,6 +44,20 @@ route_table.create_route(
     GatewayId=ig.id,
 )
 
+
+"""
+----------------------------------------------------------------------
+EC2 & EC2 Resources
+---
+
+creates:
+  - security group
+  - security group ingress
+  - (if dne) keypair
+  - instance
+  - network interface
+
+"""
 # Create sec group
 sec_group_response = ec2_client.create_security_group(
     GroupName='webapp',
@@ -52,7 +78,7 @@ try:
         KeyName='basic-webapp-key',
     )
     print(key_pair['KeyMaterial'])
-except:
+except ClientError:
     print('Key pair basic-web-app already exists')
 
 instances = ec2_resource.create_instances(
