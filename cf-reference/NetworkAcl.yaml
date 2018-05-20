@@ -1,8 +1,0 @@
-Type: "AWS::EC2::NetworkAcl"
-Properties:
-  Tags:
-    - Resource Tag
-  VpcId: String # REQUIRED
-
-Return Values:
-  Ref: When the logical ID of this resource is provided to the Ref intrinsic function, Ref returns the resource name.

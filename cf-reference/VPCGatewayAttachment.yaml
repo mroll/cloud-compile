@@ -1,8 +1,0 @@
-Type: "AWS::EC2::VPCGatewayAttachment"
-Properties: 
-  InternetGatewayId: String # Conditional You must specify either InternetGatewayId or VpnGatewayId, but not both.
-  VpcId: String # REQUIRED
-  VpnGatewayId: String # Conditional You must specify either InternetGatewayId or VpnGatewayId, but not both.
-
-Return Values:
-  Ref: Returns the resource name.

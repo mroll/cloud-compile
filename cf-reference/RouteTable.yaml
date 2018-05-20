@@ -1,8 +1,0 @@
-Type: "AWS::EC2::RouteTable"
-Properties: 
-  VpcId: String # REQUIRED
-  Tags:
-    - Resource Tag
-
-Return Values:
-  Ref: Returns the route table ID, such as rtb-12a34567.
