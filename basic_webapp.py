@@ -1,5 +1,6 @@
 from util import (associate_elastic_ip__ec2, create_ec2, create_keypair,
-                  create_security_group, create_vpc, get_vpc_subnet)
+                  create_rds_instance, create_security_group,
+                  create_subnet_group, create_vpc, get_vpc_subnet)
 
 """
 ----------------------------------------------------------------------
@@ -25,6 +26,8 @@ subnets = [
 vpc = create_vpc('10.0.0.0/16', subnets)
 print('Created vpc {}'.format(vpc.id))
 
+# mark_vpc_for_delete(vpc)
+
 
 """
 ----------------------------------------------------------------------
@@ -41,7 +44,7 @@ creates:
 """
 
 security_group = create_security_group(
-    'webapp',
+    'webapp-security-group',
     vpc.id,
     IngressRules=[
         {
@@ -68,3 +71,41 @@ print('Created Elastic IP {} and pointed it at {}'.format(
     elastic_ip,
     instance.id
 ))
+
+
+"""
+RDS & RDS Resources
+---
+
+"""
+
+db_security_group = create_security_group(
+    'private-db-security-group',
+    vpc.id,
+    IngressRules=[
+        {
+            'SourceSecurityGroupName': 'webapp-security-group'
+        }
+    ]
+)
+
+db_subnet1 = vpc.create_subnet(
+    AvailabilityZone='us-east-2a',
+    CidrBlock='10.0.2.0/24'
+)
+db_subnet2 = vpc.create_subnet(
+    AvailabilityZone='us-east-2b',
+    CidrBlock='10.0.3.0/24'
+)
+db_subnet_group = create_subnet_group(
+    'webapp-db-subnet-group',
+    SubnetIds=[db_subnet1.id, db_subnet2.id]
+)
+
+rds_response = create_rds_instance('webapp-rds')
+
+print(rds_response)
+
+
+
+

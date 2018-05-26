@@ -1,5 +1,13 @@
+import ast
+
 import boto3
 from botocore.exceptions import ClientError
+
+global DELETEFILE
+global DELETERESOURCES
+
+DELETEFILE = 'resources.delete'
+DELETERESOURCES = []
 
 ec2_client = boto3.client('ec2')
 ec2_resource = boto3.resource('ec2')
@@ -110,7 +118,9 @@ def create_security_group(
         Description=Description,
         VpcId=VpcId
     )
-    security_group = ec2_resource.SecurityGroup(security_group_response['GroupId'])
+    security_group = ec2_resource.SecurityGroup(
+        security_group_response['GroupId']
+    )
 
     for ingress_rule in IngressRules:
         security_group.authorize_ingress(**ingress_rule)
@@ -163,3 +173,77 @@ def create_ec2(
     instance.wait_until_running()
 
     return(instance)
+
+
+def create_subnet_group(
+        GroupName,
+        SubnetIds,
+        GroupDescription='default group description',
+        Tags=[]
+):
+    global ec2_client
+
+    response = ec2_client.create_db_subnet_group(
+        DBSubnetGroupName=GroupName,
+        DBSubnetGroupDescription=GroupDescription,
+        SubnetIds=SubnetIds,
+        Tags=Tags
+    )
+
+    return response
+
+
+def create_rds_instance(
+        DBInstanceIdentifier,
+        AllocatedStorage=20,
+        DBInstanceClass='db.t2.micro',
+        EngineVersion='10.1',
+        MasterUsername='root',
+        MasterUserPassword='pa55word',
+        DBSecurityGroups=[db_security_group.name],
+        AvailabilityZone='us-east-2b',
+        DBSubnetGroupName=db_subnet_group['DBSubnetGroupName'],
+        BackupRetentionPeriod=0,
+        Port=5432,  # default for postgres
+        Engine='postgres',
+        AutoMinorVersionUpgrade=True,
+        StorageType='gp2',
+        PubliclyAccessible=False,
+):
+    rds_response = ec2_client.create_db_instance(
+        DBInstanceIdentifier=DBInstanceIdentifier,
+        AllocatedStorage=AllocatedStorage,
+        DBInstanceClass=DBInstanceClass,
+        Engine=Engine,
+        MasterUsername=MasterUsername,
+        MasterUserPassword=MasterUserPassword,
+        DBSecurityGroups=DBSecurityGroups,
+        AvailabilityZone=AvailabilityZone,
+        DBSubnetGroupName=DBSubnetGroupName,
+        BackupRetentionPeriod=BackupRetentionPeriod,
+        Port=Port,
+        AutoMinorVersionUpgrade=AutoMinorVersionUpgrade,
+        StorageType=StorageType,
+        PubliclyAccessible=PubliclyAccessible,
+    )
+
+    return rds_response
+
+
+def mark_vpc_for_delete(id):
+    global DELETERESOURCES
+    DELETERESOURCES.append({'type': 'vpc', 'id': id})
+
+
+def write_resources_for_deletion():
+    global DELETEFILE, DELETERESOURCES
+    with open(DELETEFILE, 'w') as fp:
+        fp.write(str(DELETERESOURCES))
+
+
+def delete_resources():
+    global DELETEFILE
+    with open(DELETEFILE, 'r') as fp:
+        resources = ast.literal_eval(fp.read())
+
+    for resource in
