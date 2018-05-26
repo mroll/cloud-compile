@@ -1,7 +1,9 @@
 import boto3
 from botocore.exceptions import ClientError
 
+from .elastic_ip import ElasticIP
 from .internet_gateway import InternetGateway
+from .subnet import Subnet
 from .util import resource_name, tag, tagged_resource
 
 
@@ -19,18 +21,23 @@ class Vpc:
         self.resource = boto3.resource('ec2')
         self.vpc = None
 
-        self.internet_gateway = None
-        self.elastic_ips = {}
+        self._internet_gateway = None
+        self._elastic_ips = {}
+        self._subnets = {}
 
         self._create_vpc(name)
 
         if public:
             self._attach_internet_gateway('internet-gateway')
+            self.route_table.create_route(
+                DestinationCidrBlock='0.0.0.0/0',
+                GatewayId=self._internet_gateway.resource_id,
+            )
 
     def _attach_internet_gateway(self, ig_name):
-        self.internet_gateway = InternetGateway(ig_name)
-        if not self.internet_gateway.is_attached_to_vpc(self.vpc.id):
-            self.internet_gateway.attach_to_vpc(self.vpc.id)
+        self._internet_gateway = InternetGateway(ig_name)
+        if not self._internet_gateway.is_attached_to_vpc(self.vpc.id):
+            self._internet_gateway.attach_to_vpc(self.vpc.id)
 
     def _vpc_exists(self, name):
         vpc_response = self.client.describe_vpcs()
@@ -61,33 +68,9 @@ class Vpc:
         self.vpc.wait_until_available()
         tag(self.vpc, ('Name', vpc_name))
 
-    def _subnet_exists(self, subnet_name):
-        subnet_response = self.client.describe_subnets()
-        return subnet_name in [resource_name(subnetd) for subnetd in subnet_response['Subnets']]
-
-    def _existing_subnet_names(self):
-        def find_tag_with_key(tags, key):
-            for tag in tags:
-                if tag['Key'] == key:
-                    return tag
-
-        names = []
-        for subnet in self.vpc.subnets.all():
-            tag = find_tag_with_key(subnet.tags, 'Name')
-            if tag:
-                names.append(tag['Value'])
-
-        return names
-
-    def _subnet_id(self, subnet_name):
-        return first(lambda s: resource_name(s) == subnet_name, )
-
     @property
-    def _route_table(self):
+    def route_table(self):
         return list(self.vpc.route_tables.all())[0]
-
-    def _get_subnet(self, subnet_name):
-        return tagged_resource(self.vpc.subnets.all(), ('Name', subnet_name))
 
     def _get_security_group(self, security_group_name):
         return tagged_resource(self.vpc.security_groups.all(),
@@ -95,18 +78,6 @@ class Vpc:
 
     def _get_instance(self, instance_name):
         return tagged_resource(self.vpc.instances.all(), ('Name', instance_name))
-
-    def _delete_subnet(self, subnet_name):
-        subnet = self._get_subnet(subnet_name)
-        subnet.delete()
-
-    def _create_subnet(self, subnet_spec):
-        cidrblock = subnet_spec['CidrBlock']
-
-        subnet = self.vpc.create_subnet(CidrBlock=cidrblock)
-        tag(subnet, ('Name', cidrblock))
-
-        return subnet
 
     def subnets(self, proposed_subnet_specs):
         """Establish subnets in the vpc according to the given specs.
@@ -116,24 +87,17 @@ class Vpc:
         - Delete subnets if they exist but are not given in the spec
 
         """
-        existing_subnet_names = self._existing_subnet_names()
-        proposed_subnet_names = [spec['CidrBlock'] for spec in proposed_subnet_specs]
+        for spec in proposed_subnet_specs:
+            subnet_name = spec['CidrBlock']
+            self._subnets[subnet_name] = Subnet(subnet_name, self.vpc.id)
+            subnet = self._subnets[subnet_name]
 
-        route_table = self._route_table
-        for subnet_spec in proposed_subnet_specs:
-            cidrblock = subnet_spec['CidrBlock']
-            if cidrblock not in existing_subnet_names:
-                subnet = self._create_subnet(subnet_spec)
-                if self.public and subnet_spec['Public']:
-                    route_table.associate_with_subnet(SubnetId=subnet.id)
-                    route_table.create_route(
-                        DestinationCidrBlock='0.0.0.0/0',
-                        GatewayId=self.internet_gateway.resource_id,
-                    )
+            if self.public and spec['Public']:
+                self.route_table.associate_with_subnet(SubnetId=subnet.resource_id)
 
-        for subnet_name in existing_subnet_names:
-            if subnet_name not in proposed_subnet_names:
-                self._delete_subnet(subnet_name)
+        for subnet in self.vpc.subnets.all():
+            if subnet.cidr_block not in self._subnets:
+                subnet.delete()
 
     def _security_group_exists(self, GroupName):
         return GroupName in [sg.group_name for sg in self.vpc.security_groups.all()]
@@ -174,7 +138,7 @@ class Vpc:
         if self._instance_exists(InstanceName):
             return
 
-        SubnetId = self._get_subnet(SubnetName).id
+        SubnetId = self._subnets[SubnetName].resource_id
         SecurityGroupId = self._get_security_group(SecurityGroupName).id
         instances = self.resource.create_instances(
             ImageId=Ami,
@@ -211,8 +175,8 @@ class Vpc:
             print(key_pair['KeyMaterial'])
 
     def elastic_ip(self, eip_name, InstanceName=None):
-        self.elastic_ips[eip_name] = ElasticIP(eip_name)
-        eip = self.elastic_ips[eip_name]
+        self._elastic_ips[eip_name] = ElasticIP(eip_name)
+        eip = self._elastic_ips[eip_name]
 
         if InstanceName:
             instance = self._get_instance(InstanceName)
