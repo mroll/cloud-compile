@@ -1,44 +1,14 @@
 import boto3
 from botocore.exceptions import ClientError
 
+from .internet_gateway import InternetGateway
+from .util import resource_name, tag, tagged_resource
+
 
 def first(f, l):
     for el in l:
         if f(el):
             return el
-
-
-def resource_name(resource_dict):
-    if 'Tags' in resource_dict:
-        for tag in resource_dict['Tags']:
-            if tag['Key'] == 'Name':
-                return tag['Value']
-
-
-def tag(resource, *tags):
-    resource.create_tags(Tags=[{'Key': k, 'Value': v} for k, v in tags])
-
-
-def taglist_keys(taglist):
-    return [tag['Key'] for tag in taglist]
-
-
-def tagged_resource(resources, target_tag):
-    target_key = target_tag[0]
-    target_val = target_tag[1]
-
-    def has_matching_tag(resource):
-        if not resource.tags:
-            return
-
-        for resource_tag in resource.tags:
-            if target_key == resource_tag['Key'] and \
-               target_val == resource_tag['Value']:
-                return resource
-
-    for resource in resources:
-        if has_matching_tag(resource):
-            return resource
 
 
 class Vpc:
@@ -48,36 +18,19 @@ class Vpc:
         self.client = boto3.client('ec2')
         self.resource = boto3.resource('ec2')
         self.vpc = None
-        self._internet_gateway = None
+
+        self.internet_gateway = None
+        self.elastic_ips = {}
 
         self._create_vpc(name)
 
         if public:
             self._attach_internet_gateway('internet-gateway')
 
-    def _get_internet_gateway(self, ig_name):
-        return tagged_resource(self.resource.internet_gateways.all(), ('Name', ig_name))
-
-    def _internet_gateway_exists(self, ig_name):
-        return self._get_internet_gateway(ig_name) is not None
-
-    def _create_internet_gateway(self, ig_name):
-        ig = self.resource.create_internet_gateway()
-        tag(ig, ('Name', ig_name))
-
-        return ig
-
     def _attach_internet_gateway(self, ig_name):
-        if not self._internet_gateway_exists(ig_name):
-            ig = self._create_internet_gateway(ig_name)
-        else:
-            ig = self._get_internet_gateway(ig_name)
-
-        attached_vpcs = [a['VpcId'] for a in ig.attachments]
-        if self.vpc.id not in attached_vpcs:
-            ig.attach_to_vpc(VpcId=self.vpc.id)
-
-        self._internet_gateway = ig
+        self.internet_gateway = InternetGateway(ig_name)
+        if not self.internet_gateway.is_attached_to_vpc(self.vpc.id):
+            self.internet_gateway.attach_to_vpc(self.vpc.id)
 
     def _vpc_exists(self, name):
         vpc_response = self.client.describe_vpcs()
@@ -98,26 +51,6 @@ class Vpc:
         vpc_id = first(vpc_matches_name, response['Vpcs'])['VpcId']
 
         return self.resource.Vpc(vpc_id)
-
-    def _elastic_ip_exists(self, eip_name):
-        return self._get_elastic_ip(eip_name) is not None
-
-    def _get_elastic_ip(self, eip_name):
-        def eip_matches_name(eip_dict):
-            return resource_name(eip_dict) == eip_name
-
-        response = self.client.describe_addresses(
-            Filters=[
-                {
-                    'Name': 'tag:Name',
-                    'Values': [eip_name]
-                }
-            ]
-        )
-        eip_dict = first(eip_matches_name, response['Addresses'])
-
-        if eip_dict:
-            return (eip_dict['AllocationId'], eip_dict['PublicIp'])
 
     def _create_vpc(self, vpc_name, cidr_block='10.0.0.0/16'):
         if self._vpc_exists(vpc_name):
@@ -195,7 +128,7 @@ class Vpc:
                     route_table.associate_with_subnet(SubnetId=subnet.id)
                     route_table.create_route(
                         DestinationCidrBlock='0.0.0.0/0',
-                        GatewayId=self._internet_gateway.id,
+                        GatewayId=self.internet_gateway.resource_id,
                     )
 
         for subnet_name in existing_subnet_names:
@@ -278,32 +211,12 @@ class Vpc:
             print(key_pair['KeyMaterial'])
 
     def elastic_ip(self, eip_name, InstanceName=None):
-        if not self._elastic_ip_exists(eip_name):
-            allocation_response = self.client.allocate_address(Domain='vpc')
-            allocation_id = allocation_response['AllocationId']
-            public_ip = allocation_response['PublicIp']
-
-            self.client.create_tags(
-                Resources=[allocation_id],
-                Tags=[
-                    {
-                        'Key': 'Name',
-                        'Value': eip_name
-                    }
-                ]
-            )
-        else:
-            allocation_id, public_ip = self._get_elastic_ip(eip_name)
+        self.elastic_ips[eip_name] = ElasticIP(eip_name)
+        eip = self.elastic_ips[eip_name]
 
         if InstanceName:
             instance = self._get_instance(InstanceName)
-            if instance.public_ip_address != public_ip:
-                try:
-                    self.client.associate_address(
-                        AllocationId=allocation_id,
-                        InstanceId=instance.id,
-                    )
-                except ClientError as e:
-                    print(e)
+            if not eip.is_pointing_to(instance):
+                eip.point_to(instance.id)
 
-        return public_ip
+        return eip.public_ip
