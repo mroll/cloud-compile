@@ -12,10 +12,19 @@ webapp_vpc.security_group(
     'webapp-security-group',
     IngressRules=[
         {
-            'CidrIp': '0.0.0.0/0',
+            'IpRanges': [{'CidrIp': '0.0.0.0/0'}],
             'IpProtocol': 'tcp',
             'FromPort': 22,
             'ToPort': 22
+        }
+    ],
+    EgressRules=[
+        {
+            'IpProtocol': '-1',
+            'IpRanges': [{'CidrIp': '0.0.0.0/0'}],
+            'Ipv6Ranges': [],
+            'PrefixListIds': [],
+            'UserIdGroupPairs': []
         }
     ]
 )

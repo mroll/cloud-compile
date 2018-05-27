@@ -3,6 +3,7 @@ from botocore.exceptions import ClientError
 
 from .elastic_ip import ElasticIP
 from .internet_gateway import InternetGateway
+from .security_group import SecurityGroup
 from .subnet import Subnet
 from .util import resource_name, tag, tagged_resource
 
@@ -24,6 +25,7 @@ class Vpc:
         self._internet_gateway = None
         self._elastic_ips = {}
         self._subnets = {}
+        self._security_groups = {}
 
         self._create_vpc(name)
 
@@ -72,10 +74,6 @@ class Vpc:
     def route_table(self):
         return list(self.vpc.route_tables.all())[0]
 
-    def _get_security_group(self, security_group_name):
-        return tagged_resource(self.vpc.security_groups.all(),
-                               ('Name', security_group_name))
-
     def _get_instance(self, instance_name):
         return tagged_resource(self.vpc.instances.all(), ('Name', instance_name))
 
@@ -99,27 +97,14 @@ class Vpc:
             if subnet.cidr_block not in self._subnets:
                 subnet.delete()
 
-    def _security_group_exists(self, GroupName):
-        return GroupName in [sg.group_name for sg in self.vpc.security_groups.all()]
-
-    def security_group(self, GroupName, IngressRules=[], EgressRules=[],
-                       Description='default description'):
-        if self._security_group_exists(GroupName):
-            return
-
-        security_group = self.vpc.create_security_group(
-            Description=Description,
-            GroupName=GroupName
-        )
-        tag(security_group, ('Name', GroupName))
-
-        for ingress_rule in IngressRules:
-            security_group.authorize_ingress(**ingress_rule)
-
-        for egress_rule in EgressRules:
-            security_group.authorize_egress(**ingress_rule)
-
-        return security_group
+    def security_group(
+            self,
+            GroupName,
+            IngressRules=[],
+            EgressRules=[],
+            Description='default description'
+    ):
+        self._security_groups[GroupName] = SecurityGroup(GroupName, self.vpc.id, IngressRules, EgressRules, Description)
 
     def _instance_exists(self, instance_name):
         return self._get_instance(instance_name) is not None
@@ -139,7 +124,7 @@ class Vpc:
             return
 
         SubnetId = self._subnets[SubnetName].resource_id
-        SecurityGroupId = self._get_security_group(SecurityGroupName).id
+        SecurityGroupId = self._security_groups[SecurityGroupName].resource_id
         instances = self.resource.create_instances(
             ImageId=Ami,
             MinCount=MinCount,
