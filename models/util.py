@@ -30,3 +30,8 @@ def tagged_resource(resources, target_tag):
         if has_matching_tag(resource):
             return resource
 
+
+def first(f, l):
+    for el in l:
+        if f(el):
+            return el

@@ -90,10 +90,14 @@ class SecurityGroup:
         self._revoke_obsolete_ingress_rules()
         self._revoke_obsolete_egress_rules()
 
+        existing_ingress_rules = [IpPermission(**rule) for rule in self.sg.ip_permissions]
         for ingress_rule in self.ingress_rules:
-            self.sg.authorize_ingress(IpPermissions=[ingress_rule.to_dict()])
+            if ingress_rule not in existing_ingress_rules:
+                self.sg.authorize_ingress(IpPermissions=[ingress_rule.to_dict()])
 
+        existing_egress_rules = [IpPermission(**rule) for rule in self.sg.ip_permissions_egress]
         for egress_rule in self.egress_rules:
-            self.sg.authorize_egress(IpPermissions=[egress_rule.to_dict()])
+            if egress_rule not in existing_egress_rules:
+                self.sg.authorize_egress(IpPermissions=[egress_rule.to_dict()])
 
         return self.sg

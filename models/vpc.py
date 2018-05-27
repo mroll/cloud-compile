@@ -2,16 +2,12 @@ import boto3
 from botocore.exceptions import ClientError
 
 from .elastic_ip import ElasticIP
+from .instance import Instance
 from .internet_gateway import InternetGateway
+from .key_pair import KeyPair
 from .security_group import SecurityGroup
 from .subnet import Subnet
-from .util import resource_name, tag, tagged_resource
-
-
-def first(f, l):
-    for el in l:
-        if f(el):
-            return el
+from .util import first, resource_name, tag, tagged_resource
 
 
 class Vpc:
@@ -26,6 +22,8 @@ class Vpc:
         self._elastic_ips = {}
         self._subnets = {}
         self._security_groups = {}
+        self._key_pairs = {}
+        self._instances = {}
 
         self._create_vpc(name)
 
@@ -104,10 +102,13 @@ class Vpc:
             EgressRules=[],
             Description='default description'
     ):
-        self._security_groups[GroupName] = SecurityGroup(GroupName, self.vpc.id, IngressRules, EgressRules, Description)
-
-    def _instance_exists(self, instance_name):
-        return self._get_instance(instance_name) is not None
+        self._security_groups[GroupName] = SecurityGroup(
+            GroupName,
+            self.vpc.id,
+            IngressRules,
+            EgressRules,
+            Description
+        )
 
     def instance(
             self,
@@ -120,44 +121,21 @@ class Vpc:
             MinCount=1,
             MaxCount=1
     ):
-        if self._instance_exists(InstanceName):
-            return
-
-        SubnetId = self._subnets[SubnetName].resource_id
-        SecurityGroupId = self._security_groups[SecurityGroupName].resource_id
-        instances = self.resource.create_instances(
-            ImageId=Ami,
-            MinCount=MinCount,
-            MaxCount=MaxCount,
-            KeyName=KeyName,
-            InstanceType=InstanceType,
-            NetworkInterfaces=[{
-                'SubnetId': SubnetId,
-                'DeviceIndex': 0,
-                'AssociatePublicIpAddress': True,
-                'Groups': [SecurityGroupId]}
-            ],
+        subnet = self._subnets[SubnetName]
+        security_group = self._security_groups[SecurityGroupName]
+        self._instances[InstanceName] = Instance(
+            InstanceName,
+            Ami,
+            KeyName,
+            subnet,
+            security_group,
+            instance_type=InstanceType,
+            min_count=MinCount,
+            max_count=MaxCount
         )
-        instance = instances[0]
-
-        instance.wait_until_running()
-        tag(instance, ('Name', InstanceName))
-
-        return instance
-
-    def _key_pair_exists(self, KeyName):
-        return KeyName in [kp.name for kp in self.resource.key_pairs.all()]
 
     def key_pair(self, KeyName, outfile=None):
-        if self._key_pair_exists(KeyName):
-            return
-
-        key_pair = self.client.create_key_pair(KeyName=KeyName)
-        if outfile:
-            with open(outfile, 'w') as fp:
-                fp.write(key_pair['KeyMaterial'])
-        else:
-            print(key_pair['KeyMaterial'])
+        self._key_pairs[KeyName] = KeyPair(KeyName, outfile)
 
     def elastic_ip(self, eip_name, InstanceName=None):
         self._elastic_ips[eip_name] = ElasticIP(eip_name)
