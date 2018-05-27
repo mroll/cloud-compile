@@ -25,7 +25,7 @@ class Vpc:
         self._key_pairs = {}
         self._instances = {}
 
-        self._create_vpc(name)
+        self._initialize(name)
 
         if public:
             self._attach_internet_gateway('internet-gateway')
@@ -39,29 +39,15 @@ class Vpc:
         if not self._internet_gateway.is_attached_to_vpc(self.vpc.id):
             self._internet_gateway.attach_to_vpc(self.vpc.id)
 
-    def _vpc_exists(self, name):
-        vpc_response = self.client.describe_vpcs()
-        return name in [resource_name(vpcd) for vpcd in vpc_response['Vpcs']]
+    def _get_resource_reference(self):
+        return tagged_resource(self.resource.vpcs.all(), ('Name', self.name))
 
-    def _get_vpc(self, vpc_name):
-        def vpc_matches_name(vpc_dict):
-            return resource_name(vpc_dict) == vpc_name
+    def _exists(self):
+        return self._get_resource_reference() is not None
 
-        response = self.client.describe_vpcs(
-            Filters=[
-                {
-                    'Name': 'tag:Name',
-                    'Values': [vpc_name]
-                }
-            ]
-        )
-        vpc_id = first(vpc_matches_name, response['Vpcs'])['VpcId']
-
-        return self.resource.Vpc(vpc_id)
-
-    def _create_vpc(self, vpc_name, cidr_block='10.0.0.0/16'):
-        if self._vpc_exists(vpc_name):
-            self.vpc = self._get_vpc(vpc_name)
+    def _initialize(self, vpc_name, cidr_block='10.0.0.0/16'):
+        if self._exists():
+            self.vpc = self._get_resource_reference()
             return
 
         self.vpc = self.resource.create_vpc(CidrBlock=cidr_block)
@@ -72,17 +58,7 @@ class Vpc:
     def route_table(self):
         return list(self.vpc.route_tables.all())[0]
 
-    def _get_instance(self, instance_name):
-        return tagged_resource(self.vpc.instances.all(), ('Name', instance_name))
-
     def subnets(self, proposed_subnet_specs):
-        """Establish subnets in the vpc according to the given specs.
-
-        - Create subnets if they do not exist
-        - Change the privacy of existing subnets if they differ from the spec
-        - Delete subnets if they exist but are not given in the spec
-
-        """
         for spec in proposed_subnet_specs:
             subnet_name = spec['CidrBlock']
             self._subnets[subnet_name] = Subnet(subnet_name, self.vpc.id)
@@ -142,8 +118,8 @@ class Vpc:
         eip = self._elastic_ips[eip_name]
 
         if InstanceName:
-            instance = self._get_instance(InstanceName)
+            instance = self._instances[InstanceName]
             if not eip.is_pointing_to(instance):
-                eip.point_to(instance.id)
+                eip.point_to(instance.resource_id)
 
         return eip.public_ip

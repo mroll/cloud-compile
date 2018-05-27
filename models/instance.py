@@ -50,10 +50,21 @@ class Instance(object):
         """
         return self._get_resource_reference() is not None
 
+    def _is_running(self):
+        """
+        """
+        # 16 is the code that signals a running instance;
+        #     http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.Instance.state
+        if self.instance is None:
+            self.instance = self._get_resource_reference()
+
+        return self.instance.state['Code'] == 16
+
     def _initialize(self):
         """
         """
-        if self._exists():
+        if self._exists() and self._is_running():
+            self.instance = self._get_resource_reference()
             return
 
         instances = self.resource.create_instances(
@@ -69,7 +80,15 @@ class Instance(object):
                 'Groups': [self._security_group.resource_id]}
             ],
         )
-        self._instance = instances[0]
+        self.instance = instances[0]
 
-        self._instance.wait_until_running()
-        tag(self._instance, ('Name', self._name))
+        self.instance.wait_until_running()
+        tag(self.instance, ('Name', self._name))
+
+    @property
+    def resource_id(self):
+        return self.instance.id
+
+    @property
+    def public_ip_address(self):
+        return self.instance.public_ip_address
